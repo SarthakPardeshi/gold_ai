@@ -87,7 +87,7 @@ def fetch_live():
         return jsonify({
             'status': 'success',
             'features': final_df.values.tolist(),
-            'dates': pd.Series(final_df.index).dt.strftime('%Y-%m-%d').tolist()
+            'dates': [d.strftime('%Y-%m-%d') for d in final_df.index]
         })
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
