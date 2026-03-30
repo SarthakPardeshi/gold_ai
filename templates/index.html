@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoldAI | Intelligent Predictor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+    <div class="glow-bg"></div>
+    <div class="glow-bg glow-bg-2"></div>
+
+    <nav class="navbar" style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 5%;">
+        <div class="logo">
+            <span class="gold-text">Gold</span>AI
+        </div>
+        <div class="nav-links">
+            <a href="#" class="active">Dashboard</a>
+            <a href="#" onclick="document.getElementById('aboutModal').classList.add('modal-active');return false;">About Model</a>
+            <a href="#" onclick="document.getElementById('docModal').classList.add('modal-active');return false;">Documentation</a>
+            
+            <div class="creator-badge" style="display: flex; align-items: center; gap: 8px; background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.3); padding: 8px 16px; border-radius: 50px; margin-left: 10px;">
+                <i data-lucide="user" style="color: #FFD700; width: 16px; height: 16px;"></i>
+                <span style="font-size: 0.9rem; color: #f0f0f5;">Created by <strong style="color: #FFD700; font-weight: 600;">Sarthak Pardeshi (Richie)</strong></span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <header class="hero">
+            <h1>Predict the <span class="gold-gradient">Future</span> of Gold</h1>
+            <p>Our LSTM neural network analyzes 60 days of historical multi-variate market data to precisely forecast the next day's gold price in INR.</p>
+        </header>
+
+        <section class="dashboard">
+            <div class="card prediction-card">
+                <div class="card-header">
+                    <h2><i data-lucide="candlestick-chart"></i> Market Prediction</h2>
+                </div>
+                
+                <div class="card-body">
+                    <div class="upload-area" id="dropArea">
+                        <i data-lucide="upload-cloud" class="upload-icon"></i>
+                        <h3>Upload Market Data</h3>
+                        <p>Upload your <code>gold_data.csv</code> (or any raw pricing data). Our engine will automatically parse the dates and calculate the necessary 7 advanced AI features (MA10, Volatility, RSI, etc.) in real-time!</p>
+                        <input type="file" id="fileInput" accept=".csv" class="file-input" />
+                        <label for="fileInput" class="btn btn-outline">Browse CSV File</label>
+                    </div>
+
+                    <div class="divider">
+                        <span>OR</span>
+                    </div>
+                    <div class="action-buttons" style="display: flex; gap: 1rem; width: 100%;">
+                        <button id="btnLiveFetch" class="btn" style="flex: 1; display: flex; justify-content: center; gap: 8px;">
+                            <i data-lucide="refresh-cw"></i> Live Fetch (Yahoo Finance)
+                        </button>
+                        <button id="btnSampleData" class="btn btn-outline" style="flex: 1;">Run AI with Demo Data</button>
+                    </div>
+                    
+                    <div id="loadingIndicator" class="loading-state hidden">
+                        <div class="spinner"></div>
+                        <p>Processing data through Neural Network...</p>
+                    </div>
+
+                    <div id="resultArea" class="result-area hidden">
+                        <p class="result-label">Predicted Gold Price (Next Day, INR)</p>
+                        <h2 class="result-value">₹<span id="predictedPrice">--</span></h2>
+                        <div class="confidence">
+                            <i data-lucide="shield-check" class="success-icon"></i> AI Analysis Complete
+                        </div>
+                    </div>
+                    
+                    <div id="errorArea" class="error-area hidden">
+                        <i data-lucide="alert-circle" class="error-icon"></i>
+                        <p id="errorMessage">An error occurred.</p>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="card info-card">
+                <div class="card-header">
+                    <h2><i data-lucide="cpu"></i> Model Details</h2>
+                </div>
+                <div class="card-body stat-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Model Architecture</span>
+                        <span class="stat-value">LSTM Sequence</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Time Steps</span>
+                        <span class="stat-value">60 Days</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Features</span>
+                        <span class="stat-value">USD Gold, USD/INR, MA10, MA50, EMA10, Vol, RSI</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Target</span>
+                        <span class="stat-value">INR / 10g</span>
+                    </div>
+                </div>
+                <div class="info-footer">
+                    <p><i data-lucide="info"></i> Requires valid <code>f_scaler.pkl</code>, <code>t_scaler.pkl</code>, and <code>gold_model.h5</code> for accurate scaling and prediction.</p>
+                </div>
+            </div>
+
+            <div class="card chart-card">
+                <div class="card-header">
+                    <h2><i data-lucide="activity"></i> Market Trend Analysis</h2>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="position: relative; height: 350px; width: 100%;">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="analysis-section" style="margin-top: 4rem; animation: fadeInUp 0.8s ease-out 0.4s both;">
+            <div class="card usage-card">
+                <div class="card-header">
+                    <h2><i data-lucide="book-open"></i> Analysis & API Usage Guide</h2>
+                </div>
+                <div class="card-body">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+                        <div class="guide-box">
+                            <h3 style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-family: 'Space Grotesk', sans-serif;"><i data-lucide="file-spreadsheet" style="color: var(--gold-primary); width: 20px;"></i> Understanding The Input</h3>
+                            <p style="color: var(--text-muted); line-height: 1.6; margin-top: 1rem; font-size: 0.95rem;">
+                                Our enhanced frontend now accepts <strong>RAW pricing data</strong> (like <code>gold_data.csv</code>) or pre-engineered datasets! The model internally requires 7 exact features: <em>USD Gold, USD/INR, MA10, MA50, EMA10, Volatility, and RSI</em>.
+                                <br><br>
+                                When you upload raw data, our Javascript pipeline automatically strips text/dates, assumes a benchmark exchange rate, and dynamically <strong>calculates all Advanced Indicators</strong> on the fly before packaging the 60-day Sequence!
+                            </p>
+                        </div>
+                        <div class="guide-box">
+                            <h3 style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-family: 'Space Grotesk', sans-serif;"><i data-lucide="cpu" style="color: var(--gold-primary); width: 20px;"></i> Advanced AI Pipeline</h3>
+                            <p style="color: var(--text-muted); line-height: 1.6; margin-top: 1rem; font-size: 0.95rem;">
+                                Once parsed, the <code>(60, 7)</code> matrix is normalized through the backend Scikit-Learn feature scaler (<code>f_scaler.pkl</code>) before being translated into a sequence vector <code>[1, 60, 7]</code> format and fed into the TensorFlow LSTM sequential architecture.
+                                <br><br>
+                                The final predicted scalar value generated by the AI is then inversely transformed using the attached <code>t_scaler.pkl</code>. This resolves directly to the actual real-world Next Day Gold Price in INR, plotted securely above.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 GoldAI Predictor. Powered by TensorFlow & Flask.</p>
+    </footer>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('modal-active');
+        }
+    </script>
+    <style>
+        .custom-modal {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(10, 10, 15, 0.8); backdrop-filter: blur(8px);
+            display: flex; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s ease; z-index: 9999;
+        }
+        .custom-modal.modal-active { opacity: 1; pointer-events: auto; }
+        .modal-content {
+            background: linear-gradient(145deg, rgba(30,30,35,0.9), rgba(20,20,25,0.95));
+            border: 1px solid rgba(255, 215, 0, 0.2); border-radius: 16px;
+            width: 90%; max-width: 600px; padding: 30px; position: relative;
+            transform: translateY(20px); transition: transform 0.3s ease;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        .custom-modal.modal-active .modal-content { transform: translateY(0); }
+        .modal-close {
+            position: absolute; top: 20px; right: 20px; background: transparent;
+            border: none; color: #a0a0b0; cursor: pointer;
+        }
+        .modal-close:hover { color: #FFD700; }
+        .modal-content h2 { color: #FFD700; margin-bottom: 15px; font-family: 'Space Grotesk', sans-serif; }
+        .modal-content p { color: #f0f0f5; line-height: 1.6; margin-bottom: 10px; font-family: 'Outfit', sans-serif;}
+        .modal-content ul { margin-left: 20px; color: #a0a0b0; line-height: 1.6; margin-bottom: 15px; }
+    </style>
+
+    <div id="aboutModal" class="custom-modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal('aboutModal')"><i data-lucide="x"></i></button>
+            <h2>About The ML Model</h2>
+            <p><strong>Architecture:</strong> Long Short-Term Memory (LSTM) Neural Network.</p>
+            <p>Our model is sequence-based machinery designed to ingest the last <strong>60 market days</strong> of multi-variate sliding windows to output a single prediction step. Traditional models fail in non-stationary markets, but the internal LSTM cell state effectively tracks long-term dependencies to avoid noise.</p>
+            <p>Features Trained:</p>
+            <ul>
+                <li>Gold_Price_USD (Raw international driver)</li>
+                <li>USD_INR (Exchange benchmark)</li>
+                <li>MA10 & MA50 (Momentum crossovers)</li>
+                <li>EMA10 (Weighted recent activity)</li>
+                <li>Volatility (10-Day Standard Deviation)</li>
+                <li>RSI (Relative Strength Index over 14 periods)</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="docModal" class="custom-modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal('docModal')"><i data-lucide="x"></i></button>
+            <h2>Documentation & Logic</h2>
+            <p><strong>System Workflow:</strong></p>
+            <p>1. <strong>Data Ingestion:</strong> The frontend captures either a manual CSV upload or executes an automated live-fetch against Yahoo Finance APIs (`GC=F`, `INR=X`), covering the last 1-year of exact closing histories.</p>
+            <p>2. <strong>Engineering Pipeline:</strong> The system automatically cleans missing dates and engineers sophisticated RSI arrays and Variance components instantly in Javascript/Python, mapping raw Ounce metrics smoothly to standard Indian 10-Gram values.</p>
+            <p>3. <strong>Prediction Endpoint:</strong> The robust Flask server receives exactly the 60x7 matrix. It scales it against our saved `MinMaxScaler` arrays, triggers the native Keras/TensorFlow prediction weights, and scales the result back out to INR organically.</p>
+            <p><em>API Built safely with stateless transaction architecture securely decoupled from the UI layer.</em></p>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>
