@@ -1,60 +1,78 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, render_template, request, jsonify
 import numpy as np
 from tensorflow.keras.models import load_model
 import pickle
+import os
+import pandas as pd
 
 app = Flask(__name__)
 
-# 1. Load the AI components (Ensure you save them first in your training script)
-# model.save('gold_model.h5')
-# pickle.dump(f_scaler, open('f_scaler.pkl', 'wb'))
-# pickle.dump(t_scaler, open('t_scaler.pkl', 'wb'))
+# Global variables for model and scalers
+model = None
+f_scaler = None
+t_scaler = None
+model_ready = False
 
-try:
-    model = load_model('gold_model.h5', compile=False)
-    f_scaler = pickle.load(open('f_scaler.pkl', 'rb'))
-    t_scaler = pickle.load(open('t_scaler.pkl', 'rb'))
-except Exception as e:
-    print(f"Warning: Model/Scalers not found. Ensure they exist. Error: {e}")
+def load_ai_assets():
+    global model, f_scaler, t_scaler, model_ready
+    try:
+        model_path = 'gold_model.h5'
+        f_scaler_path = 'f_scaler.pkl'
+        t_scaler_path = 't_scaler.pkl'
+
+        if os.path.exists(model_path) and os.path.exists(f_scaler_path) and os.path.exists(t_scaler_path):
+            print("--- Loading AI Assets ---")
+            model = load_model(model_path)
+            with open(f_scaler_path, 'rb') as f:
+                f_scaler = pickle.load(f)
+            with open(t_scaler_path, 'rb') as f:
+                t_scaler = pickle.load(f)
+            model_ready = True
+            print("--- AI Assets Loaded Successfully ---")
+        else:
+            print("--- ERROR: AI Asset Files Missing ---")
+    except Exception as e:
+        print(f"--- ERROR loading assets: {str(e)} ---")
+
+# Execute load during startup
+load_ai_assets()
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
-@app.route("/predict", methods=["GET", "POST"])
+@app.route("/predict", methods=["POST"])
 def predict():
+    if not model_ready:
+        return jsonify({'status': 'error', 'message': 'AI Model is warming up... please wait 30s.'}), 503
+
     try:
-        # Expecting a JSON with the last 60 days of feature data
-        data = request.get_json()
-        input_features = np.array(data['features']) # Shape: (60, 7)
+        data = request.json
+        features = np.array(data['features'])
         
-        # Scale features
-        scaled_input = f_scaler.transform(input_features)
+        # Scaling
+        features_scaled = f_scaler.transform(features.reshape(-1, features.shape[-1]))
+        features_reshaped = features_scaled.reshape(1, 60, features.shape[-1])
         
-        # Reshape for LSTM: (1, 60, 7)
-        scaled_input = scaled_input.reshape(1, 60, 7)
-        
-        # Make Prediction
-        prediction_scaled = model.predict(scaled_input)
-        
-        # Inverse Scale to get INR Price
-        final_price_inr = t_scaler.inverse_transform(prediction_scaled)
+        # Prediction
+        prediction_scaled = model.predict(features_reshaped, verbose=0)
+        prediction_inr = t_scaler.inverse_transform(prediction_scaled)
         
         return jsonify({
             'status': 'success',
-            'predicted_gold_price_inr': float(final_price_inr[0][0])
+            'predicted_gold_price_inr': float(prediction_inr[0][0])
         })
-    
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
 @app.route("/fetch_live", methods=["GET"])
 def fetch_live():
+    if not model_ready:
+        return jsonify({'status': 'error', 'message': 'AI Model is warming up... please wait 30s.'}), 503
+
     try:
         import yfinance as yf
-        import pandas as pd
         
-        # Download last 1 year to safely cover 110+ days for moving averages
         gold = yf.download('GC=F', period='1y', progress=False)
         usd_inr = yf.download('INR=X', period='1y', progress=False)
         
@@ -66,7 +84,6 @@ def fetch_live():
             'USD_INR': usd_rate
         }).dropna()
         
-        # Engineering accurate AI Features
         df['Gold_Price_INR'] = df['Gold_Price_USD'] * df['USD_INR']
         df['MA10'] = df['Gold_Price_INR'].rolling(10).mean()
         df['MA50'] = df['Gold_Price_INR'].rolling(50).mean()
@@ -80,9 +97,8 @@ def fetch_live():
         df['RSI'] = 100 - (100 / (1 + rs))
         
         df = df.dropna()
-        
         feature_cols = ['Gold_Price_USD', 'USD_INR', 'MA10', 'MA50', 'EMA10', 'Volatility', 'RSI']
-        final_df = df[feature_cols].tail(60) # The strict 60 day sequence
+        final_df = df[feature_cols].tail(60)
         
         return jsonify({
             'status': 'success',
@@ -93,4 +109,5 @@ def fetch_live():
         return jsonify({'status': 'error', 'message': str(e)})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
